@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1a1714">
+  <title>VocabFlash — English Vocabulary Flashcards</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Atmospheric background -->
+  <div class="bg-atmosphere" aria-hidden="true">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+  </div>
+  <div class="noise-overlay" aria-hidden="true"></div>
+
+  <!-- ════ Words View ════ -->
+  <section id="view-words" class="view active">
+    <header class="view-header stagger-1">
+      <h1 class="view-title">Words</h1>
+      <p class="view-subtitle" id="words-subtitle">Your vocabulary collection</p>
+    </header>
+
+    <!-- Import prompt (shown when no words imported) -->
+    <div id="import-prompt" class="import-prompt stagger-2">
+      <div class="import-icon-wrap">
+        <svg class="import-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M8 32l16-16 16 16"/>
+          <path d="M24 16v24"/>
+          <rect x="6" y="6" width="36" height="36" rx="6"/>
+        </svg>
+      </div>
+      <p class="import-text">
+        <strong>832 words</strong> ready to import<br>
+        <span class="import-hint">From your vocabulary spreadsheet</span>
+      </p>
+      <button id="btn-import" class="btn btn-accent">Import All Words</button>
+    </div>
+
+    <!-- Progress bar for definition fetching -->
+    <div id="import-progress" class="progress-container hidden">
+      <p id="import-progress-text" class="progress-text">Fetching definitions...</p>
+      <div class="progress-bar-bg">
+        <div id="import-progress-bar" class="progress-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- Search & filter (shown after import) -->
+    <div id="words-controls" class="words-controls hidden stagger-2">
+      <div class="search-row">
+        <input type="text" id="search-input" placeholder="Search words...">
+        <div class="filter-pills">
+          <button class="pill active" data-filter="all">All</button>
+          <button class="pill" data-filter="new">New</button>
+          <button class="pill" data-filter="reviewing">Learning</button>
+          <button class="pill" data-filter="learned">Learned</button>
+        </div>
+      </div>
+      <div class="stats-bar">
+        <span class="stat" id="stat-total"></span>
+        <span class="stat stat-new" id="stat-new"></span>
+        <span class="stat stat-reviewing" id="stat-reviewing"></span>
+        <span class="stat stat-learned" id="stat-learned"></span>
+      </div>
+    </div>
+
+    <!-- Manual add -->
+    <div id="manual-section" class="manual-entry hidden stagger-3">
+      <div class="manual-input-row">
+        <input type="text" id="manual-word-input" placeholder="Add a word...">
+        <button id="btn-add-manual" class="btn btn-accent">+</button>
+      </div>
+    </div>
+
+    <!-- Word list -->
+    <div id="word-list" class="stagger-3"></div>
+  </section>
+
+  <!-- ════ Flashcards View ════ -->
+  <section id="view-flashcards" class="view">
+    <header class="view-header">
+      <h1 class="view-title">Review</h1>
+      <p class="view-subtitle">Swipe to learn</p>
+    </header>
+    <div id="card-container"></div>
+    <p id="card-counter"></p>
+    <div class="swipe-hints">
+      <span class="hint-left">← don't know</span>
+      <span class="hint-right">know it →</span>
+    </div>
+  </section>
+
+  <!-- ════ Sentence Test View ════ -->
+  <section id="view-sentence-test" class="view">
+    <header class="view-header">
+      <h1 class="view-title">Prove it</h1>
+      <p class="view-subtitle">Use the word in a sentence to truly learn it</p>
+    </header>
+    <div id="sentence-test-content"></div>
+  </section>
+
+  <!-- ════ Bottom Navigation ════ -->
+  <nav class="bottom-nav">
+   <div class="bottom-nav-inner">
+    <button class="nav-tab active" data-view="words">
+      <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+      </svg>
+      <span>Words</span>
+      <span class="nav-badge" id="badge-words"></span>
+    </button>
+    <button class="nav-tab" data-view="flashcards">
+      <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <rect x="3" y="5" width="14" height="16" rx="2"/>
+        <path d="M7 5V3h12a2 2 0 012 2v12"/>
+      </svg>
+      <span>Cards</span>
+      <span class="nav-badge" id="badge-cards"></span>
+    </button>
+    <button class="nav-tab" data-view="sentence-test">
+      <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M9 11l3 3L22 4"/>
+        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+      <span>Test</span>
+      <span class="nav-badge" id="badge-learned"></span>
+    </button>
+   </div>
+  </nav>
+
+  <!-- ════ Scripts ════ -->
+  <script src="js/storage.js"></script>
+  <script src="js/dictionary.js"></script>
+  <script src="js/flashcard.js"></script>
+  <script src="js/sentence-test.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
