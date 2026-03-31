@@ -2,7 +2,7 @@
 
 const GEMINI_KEY_STORAGE = 'gemini_api_key';
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
+const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 
 function getApiKey() {
   return localStorage.getItem(GEMINI_KEY_STORAGE) || '';
