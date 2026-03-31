@@ -24,9 +24,54 @@
   <!-- ════ Words View ════ -->
   <section id="view-words" class="view active">
     <header class="view-header stagger-1">
-      <h1 class="view-title">Words</h1>
+      <div class="header-row">
+        <h1 class="view-title">Words</h1>
+        <button id="btn-settings" class="btn-icon" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="22" height="22">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
       <p class="view-subtitle" id="words-subtitle">Your vocabulary collection</p>
     </header>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+      <div class="modal-card">
+        <button class="detail-close" id="btn-close-settings">&times;</button>
+        <h2 class="modal-title">Settings</h2>
+
+        <div class="setting-group">
+          <label class="setting-label">Gemini API Key</label>
+          <p class="setting-desc">Your key is stored locally on this device only. It is never sent to any server except Google's Gemini API.</p>
+          <div class="key-input-row">
+            <input type="password" id="api-key-input" placeholder="Paste your API key here..." autocomplete="off">
+            <button id="btn-toggle-key" class="btn-icon-sm" title="Show/Hide">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <div class="key-actions">
+            <button id="btn-save-key" class="btn btn-primary btn-sm">Save Key</button>
+            <button id="btn-clear-key" class="btn btn-secondary btn-sm">Clear Key</button>
+          </div>
+          <p id="key-status" class="key-status"></p>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">AI Features</label>
+          <p class="setting-desc">With a valid API key, you get:</p>
+          <ul class="feature-list">
+            <li>AI-generated English definitions & examples</li>
+            <li>Smart sentence evaluation with feedback</li>
+            <li>Grammar correction & usage tips</li>
+          </ul>
+        </div>
+      </div>
+    </div>
 
     <!-- Import prompt (shown when no words imported) -->
     <div id="import-prompt" class="import-prompt stagger-2">
@@ -138,6 +183,7 @@
 
   <!-- ════ Scripts ════ -->
   <script src="js/storage.js"></script>
+  <script src="js/gemini.js"></script>
   <script src="js/dictionary.js"></script>
   <script src="js/flashcard.js"></script>
   <script src="js/sentence-test.js"></script>

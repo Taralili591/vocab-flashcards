@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', initApp);
 
 function initApp() {
   setupNavigation();
+  setupSettings();
   setupImport();
   setupManualEntry();
   setupSearch();
@@ -11,7 +12,10 @@ function initApp() {
   if (hasImported()) {
     showWordControls();
     renderWordList();
-    fetchMissingDefinitions();
+    // Auto-fetch missing definitions if API key is set
+    if (hasApiKey()) {
+      fetchMissingDefinitions();
+    }
   }
 
   showView('words');
@@ -60,6 +64,100 @@ function updateBadges() {
   if (wordsBadge) wordsBadge.textContent = totalCount || '';
 }
 
+// ─── Settings ───
+
+function setupSettings() {
+  const btnOpen = document.getElementById('btn-settings');
+  const modal = document.getElementById('settings-modal');
+  const btnClose = document.getElementById('btn-close-settings');
+  const keyInput = document.getElementById('api-key-input');
+  const btnToggle = document.getElementById('btn-toggle-key');
+  const btnSave = document.getElementById('btn-save-key');
+  const btnClear = document.getElementById('btn-clear-key');
+  const keyStatus = document.getElementById('key-status');
+
+  if (!btnOpen) return;
+
+  // Show current key status
+  updateKeyStatus(keyStatus);
+
+  // Load existing key (masked)
+  if (hasApiKey()) {
+    keyInput.value = '••••••••••••••••';
+  }
+
+  btnOpen.addEventListener('click', () => {
+    modal.classList.remove('hidden');
+  });
+
+  btnClose.addEventListener('click', () => {
+    modal.classList.add('hidden');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.add('hidden');
+  });
+
+  btnToggle.addEventListener('click', () => {
+    const isPassword = keyInput.type === 'password';
+    keyInput.type = isPassword ? 'text' : 'password';
+    if (isPassword && hasApiKey() && keyInput.value === '••••••••••••••••') {
+      keyInput.value = getApiKey();
+    }
+  });
+
+  btnSave.addEventListener('click', async () => {
+    const raw = keyInput.value.trim();
+    if (!raw || raw === '••••••••••••••••') {
+      showError('Please paste a valid API key.');
+      return;
+    }
+
+    btnSave.disabled = true;
+    btnSave.textContent = 'Verifying...';
+
+    try {
+      // Temporarily save to test
+      saveApiKey(raw);
+      await callGemini('Say "ok" in one word.');
+      keyInput.type = 'password';
+      keyInput.value = '••••••••••••••••';
+      updateKeyStatus(keyStatus);
+      showNotification('API key verified and saved!');
+      modal.classList.add('hidden');
+
+      // Start fetching missing definitions
+      fetchMissingDefinitions();
+    } catch (err) {
+      clearApiKey();
+      keyStatus.textContent = 'Invalid key: ' + err.message;
+      keyStatus.className = 'key-status key-status-error';
+    }
+
+    btnSave.disabled = false;
+    btnSave.textContent = 'Save Key';
+  });
+
+  btnClear.addEventListener('click', () => {
+    clearApiKey();
+    keyInput.value = '';
+    keyInput.type = 'password';
+    updateKeyStatus(keyStatus);
+    showNotification('API key cleared.');
+  });
+}
+
+function updateKeyStatus(el) {
+  if (!el) return;
+  if (hasApiKey()) {
+    el.textContent = 'Key configured — AI features active';
+    el.className = 'key-status key-status-ok';
+  } else {
+    el.textContent = 'No key — add your Gemini API key to enable AI';
+    el.className = 'key-status key-status-none';
+  }
+}
+
 // ─── Import ───
 
 function setupImport() {
@@ -84,15 +182,21 @@ async function handleImport() {
 
     bulkAddWords(wordList);
 
-    btn.textContent = 'Imported! Fetching definitions...';
-    progress.classList.remove('hidden');
-
-    await fetchDefinitionsInBatches(progressText, progressBar);
-
-    progress.classList.add('hidden');
     showWordControls();
+
+    if (hasApiKey()) {
+      btn.textContent = 'Imported! Fetching definitions with AI...';
+      progress.classList.remove('hidden');
+      await fetchDefinitionsInBatches(progressText, progressBar);
+      progress.classList.add('hidden');
+    }
+
     renderWordList();
     showNotification(`${wordList.length} words imported!`);
+
+    if (!hasApiKey()) {
+      showNotification('Tip: Add your Gemini API key in Settings for AI definitions!', 'info');
+    }
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Import All Words';
@@ -119,23 +223,41 @@ async function fetchDefinitionsInBatches(progressText, progressBar) {
   const total = words.length;
   if (total === 0) return;
 
-  const BATCH_SIZE = 5;
+  if (hasApiKey()) {
+    // Use Gemini for batch definitions
+    const results = await fetchDefinitionsWithGemini(words, (done, all) => {
+      const pct = Math.round((done / all) * 100);
+      if (progressText) progressText.textContent = `AI generating definitions... ${done}/${all}`;
+      if (progressBar) progressBar.style.width = `${pct}%`;
+    });
 
-  for (let i = 0; i < total; i++) {
-    const word = words[i];
-    const { definition, phonetic } = await fetchDefinition(word.text);
+    results.forEach((r) => {
+      const word = words.find((w) => w.text === r.word);
+      if (word && r.definition) {
+        const defText = r.example
+          ? `${r.definition}\n\nExample: "${r.example}"`
+          : r.definition;
+        updateWord(word.id, { definition: defText, phonetic: r.phonetic });
+      }
+    });
+  } else {
+    // Fallback: free dictionary API (one by one, slow)
+    for (let i = 0; i < total; i++) {
+      const word = words[i];
+      const { definition, phonetic } = await fetchDefinition(word.text);
 
-    if (definition !== 'Definition not found') {
-      updateWord(word.id, { definition, phonetic });
-    }
+      if (definition !== 'Definition not found') {
+        updateWord(word.id, { definition, phonetic });
+      }
 
-    const done = i + 1;
-    const pct = Math.round((done / total) * 100);
-    if (progressText) progressText.textContent = `Fetching definitions... ${done}/${total}`;
-    if (progressBar) progressBar.style.width = `${pct}%`;
+      const done = i + 1;
+      const pct = Math.round((done / total) * 100);
+      if (progressText) progressText.textContent = `Fetching definitions... ${done}/${total}`;
+      if (progressBar) progressBar.style.width = `${pct}%`;
 
-    if (i < total - 1) {
-      await new Promise((r) => setTimeout(r, 200));
+      if (i < total - 1) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
     }
   }
 }
@@ -151,6 +273,7 @@ async function fetchMissingDefinitions() {
   if (progress) progress.classList.remove('hidden');
   await fetchDefinitionsInBatches(progressText, progressBar);
   if (progress) progress.classList.add('hidden');
+  renderWordList();
 }
 
 // ─── Search & Filter ───
@@ -201,7 +324,22 @@ async function addManualWord(input) {
   }
 
   input.disabled = true;
-  const { definition, phonetic } = await fetchDefinition(word);
+
+  let definition = '';
+  let phonetic = '';
+
+  if (hasApiKey()) {
+    const result = await fetchDefinitionWithGemini(word);
+    definition = result.example
+      ? `${result.definition}\n\nExample: "${result.example}"`
+      : result.definition;
+    phonetic = result.phonetic;
+  } else {
+    const result = await fetchDefinition(word);
+    definition = result.definition;
+    phonetic = result.phonetic;
+  }
+
   addWord({ text: word, definition, phonetic });
   input.value = '';
   input.disabled = false;
@@ -221,7 +359,6 @@ function renderWordList() {
   const allWords = getWords();
   list.innerHTML = '';
 
-  // Update stats
   const newCount = allWords.filter((w) => w.status === 'new').length;
   const reviewCount = allWords.filter((w) => w.status === 'reviewing').length;
   const learnedCount = allWords.filter((w) => w.status === 'learned').length;
@@ -236,7 +373,6 @@ function renderWordList() {
   if (statReviewing) statReviewing.textContent = `${reviewCount} learning`;
   if (statLearned) statLearned.textContent = `${learnedCount} learned`;
 
-  // Filter
   let filtered = allWords;
   if (currentFilter !== 'all') {
     filtered = filtered.filter((w) => w.status === currentFilter);
@@ -251,7 +387,6 @@ function renderWordList() {
     return;
   }
 
-  // Render compact list
   filtered.forEach((w) => {
     const item = document.createElement('div');
     item.className = `word-item word-item-${w.status}`;
@@ -275,7 +410,6 @@ function renderWordList() {
 }
 
 function showWordDetail(word) {
-  const list = document.getElementById('word-list');
   const existing = document.querySelector('.word-detail-modal');
   if (existing) existing.remove();
 
@@ -325,7 +459,6 @@ function showTestQueue() {
     return;
   }
 
-  // Pick a random word from reviewing
   const word = reviewing[Math.floor(Math.random() * reviewing.length)];
   showSentenceTest(word);
 }
